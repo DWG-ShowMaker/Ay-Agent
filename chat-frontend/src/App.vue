@@ -1,10 +1,19 @@
 <template>
-  <el-config-provider>
-    <router-view/>
-  </el-config-provider>
+  <router-view v-slot="{ Component }">
+    <transition name="fade" mode="out-in">
+      <component :is="Component" />
+    </transition>
+  </router-view>
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
+
+// 初始化暗色模式
+onMounted(() => {
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  document.documentElement.classList.toggle('dark', prefersDark)
+})
 </script>
 
 <style>
@@ -18,6 +27,7 @@
   --ai-text: #ececf1;
   --ai-text-dark: #000000;
   --ai-green: #10a37f;
+  color-scheme: light dark;
 }
 
 html, body {
@@ -39,6 +49,32 @@ body.dark {
   height: 100vh;
 }
 
+/* NProgress 样式覆盖 */
+#nprogress {
+  pointer-events: none;
+}
+
+#nprogress .bar {
+  background: #3b82f6;
+  height: 3px;
+}
+
+#nprogress .peg {
+  box-shadow: 0 0 10px #3b82f6, 0 0 5px #3b82f6;
+}
+
+/* 过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+/* Markdown 样式 */
 .markdown-body {
   font-size: 14px;
   line-height: 1.6;
@@ -84,13 +120,29 @@ body.dark .markdown-body blockquote {
   color: var(--ai-text);
 }
 
-/* Element Plus主题覆盖 */
-.el-button--primary {
-  --el-button-bg-color: var(--ai-green);
-  --el-button-border-color: var(--ai-green);
-  --el-button-hover-bg-color: var(--ai-green);
-  --el-button-hover-border-color: var(--ai-green);
-  --el-button-active-bg-color: var(--ai-green);
-  --el-button-active-border-color: var(--ai-green);
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+  border-radius: 3px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(75, 85, 99, 0.5);
+}
+
+/* 平滑过渡效果 */
+.transition-all {
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
 }
 </style>

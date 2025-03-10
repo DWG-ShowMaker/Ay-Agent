@@ -28,11 +28,16 @@
           <span class="text-xs text-gray-400 dark:text-gray-500">{{ formatTime }}</span>
         </div>
         <div class="prose dark:prose-invert prose-sm max-w-none">
-          <MarkdownContent :content="props.content" />
-          <div v-if="isThinking && isLastMessage" class="flex items-center gap-1 mt-2">
-            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce"></div>
-            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.2s]"></div>
-            <div class="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:0.4s]"></div>
+          <MarkdownContent 
+            :content="props.content" 
+            :key="props.content"
+          />
+          <div v-if="isThinking && isLastMessage" class="flex items-center gap-2 mt-4">
+            <div class="thinking-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
           </div>
         </div>
       </div>
@@ -163,5 +168,46 @@ const copyMessage = () => {
 
 .message-wrapper button:active {
   transform: scale(0.95);
+}
+
+/* 思考动画 */
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+}
+
+.dark .thinking-dots {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.thinking-dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #10b981;
+  animation: thinking 1.4s infinite;
+  opacity: 0.5;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes thinking {
+  0%, 100% {
+    transform: scale(0.2);
+    opacity: 0.2;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style>

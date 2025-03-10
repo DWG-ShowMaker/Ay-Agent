@@ -7,6 +7,7 @@ export const useChatStore = defineStore('chat', () => {
   const messages = ref([])
   const isLoading = ref(false)
   const error = ref(null)
+  const isThinking = ref(false)
 
   const currentConversation = computed(() => 
     conversations.value.find(conv => conv.id === currentConversationId.value)
@@ -113,19 +114,21 @@ export const useChatStore = defineStore('chat', () => {
 
     isLoading.value = true
     error.value = null
+    isThinking.value = true
 
     try {
       const messageId = Date.now().toString()
       
       // 添加用户消息到本地状态
-      messages.value.push({
+      const userMessage = {
         id: messageId,
         role: 'user',
         content,
         timestamp: Date.now()
-      })
+      }
+      messages.value = [...messages.value, userMessage]
 
-      let assistantMessage = {
+      const assistantMessage = {
         id: messageId + '_reply',
         role: 'assistant',
         content: '',
@@ -133,7 +136,7 @@ export const useChatStore = defineStore('chat', () => {
       }
       
       // 添加空的助手消息，用于流式更新
-      messages.value.push(assistantMessage)
+      messages.value = [...messages.value, assistantMessage]
 
       const url = new URL('/api/chat/sse', window.location.origin)
       url.searchParams.append('conversation_id', currentConversationId.value)
@@ -143,23 +146,36 @@ export const useChatStore = defineStore('chat', () => {
       const eventSource = new EventSource(url)
 
       return new Promise((resolve, reject) => {
+        let hasStartedReceiving = false
+
         eventSource.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data)
             if (data.type === 'message') {
-              assistantMessage.content += data.content
-              // 强制更新消息数组以触发视图更新
-              messages.value = [...messages.value]
+              if (!hasStartedReceiving) {
+                hasStartedReceiving = true
+                isThinking.value = false
+              }
+              // 找到并更新助手消息
+              const index = messages.value.findIndex(msg => msg.id === assistantMessage.id)
+              if (index !== -1) {
+                messages.value[index].content += data.content
+                // 强制更新消息数组以触发视图更新
+                messages.value = [...messages.value]
+              }
             } else if (data.type === 'error') {
               eventSource.close()
+              isThinking.value = false
               reject(new Error(data.content))
             } else if (data.type === 'done') {
               eventSource.close()
+              isThinking.value = false
               resolve()
             }
           } catch (e) {
             console.error('解析消息失败:', e)
             eventSource.close()
+            isThinking.value = false
             reject(e)
           }
         }
@@ -167,12 +183,14 @@ export const useChatStore = defineStore('chat', () => {
         eventSource.onerror = (err) => {
           console.error('SSE连接错误:', err)
           eventSource.close()
+          isThinking.value = false
           reject(new Error('连接错误'))
         }
       })
     } catch (e) {
       console.error('发送消息失败:', e)
       error.value = '发送消息失败'
+      isThinking.value = false
       throw e
     } finally {
       isLoading.value = false
@@ -185,6 +203,7 @@ export const useChatStore = defineStore('chat', () => {
     currentConversationId,
     messages,
     isLoading,
+    isThinking,
     error,
     fetchConversations,
     createConversation,
