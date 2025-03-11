@@ -6,20 +6,20 @@ class DeepSeekService:
     def __init__(self):
         self.api_key = Config.DEEPSEEK_API_KEY
         self.api_base = Config.DEEPSEEK_API_BASE
-        self.model = Config.DEEPSEEK_MODEL
 
-    def create_chat_completion(self, messages):
+    def create_chat_completion(self, messages, is_reasoning=False):
         url = f"{self.api_base}/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
         data = {
-            "model": self.model,
+            "model": Config.DEEPSEEK_REASONER_MODEL if is_reasoning else Config.DEEPSEEK_MODEL,
             "messages": messages,
             "temperature": Config.TEMPERATURE,
             "max_tokens": Config.MAX_TOKENS,
-            "stream": True
+            "stream": True,
+            "is_reasoning": is_reasoning
         }
         
         response = requests.post(url, headers=headers, json=data, stream=True)

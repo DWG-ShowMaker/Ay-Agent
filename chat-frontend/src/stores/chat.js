@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import request from '../utils/request'
 
 export const useChatStore = defineStore('chat', () => {
   const conversations = ref([])
@@ -16,8 +17,7 @@ export const useChatStore = defineStore('chat', () => {
   // 获取所有对话列表
   async function fetchConversations() {
     try {
-      const response = await fetch('/api/conversations')
-      const data = await response.json()
+      const data = await request.get('/conversations')
       conversations.value = data
       return data
     } catch (e) {
@@ -30,10 +30,7 @@ export const useChatStore = defineStore('chat', () => {
   // 创建新对话
   async function createConversation() {
     try {
-      const response = await fetch('/api/conversations', {
-        method: 'POST'
-      })
-      const conversation = await response.json()
+      const conversation = await request.post('/conversations')
       conversations.value.unshift(conversation)
       await switchConversation(conversation.id)
       return conversation
@@ -48,56 +45,86 @@ export const useChatStore = defineStore('chat', () => {
   async function switchConversation(conversationId) {
     try {
       isLoading.value = true
-      error.value = null
-      
-      // 获取对话完整内容
-      const response = await fetch(`/api/conversations/${conversationId}`)
-      const conversation = await response.json()
-      
-      if (response.ok) {
-        currentConversationId.value = conversationId
-        messages.value = conversation.messages || []
-        
-        // 更新对话列表中的对话信息
-        const index = conversations.value.findIndex(conv => conv.id === conversationId)
-        if (index !== -1) {
-          conversations.value[index] = {
-            ...conversations.value[index],
-            ...conversation
-          }
-        }
+      currentConversationId.value = conversationId
+      if (conversationId) {
+        const data = await request.get(`/conversations/${conversationId}`)
+        messages.value = data.messages || []
       } else {
-        throw new Error(conversation.error || '加载对话失败')
+        messages.value = []
       }
     } catch (e) {
       console.error('切换对话失败:', e)
-      error.value = e.message || '切换对话失败'
+      error.value = '切换对话失败'
       throw e
     } finally {
       isLoading.value = false
     }
   }
 
+  // 发送消息
+  async function sendMessage(content, isReasoning = false) {
+    if (!content.trim()) return
+    
+    // 如果没有当前对话，先创建一个
+    if (!currentConversationId.value) {
+      await createConversation()
+    }
+
+    // 添加用户消息
+    messages.value.push({
+      role: 'user',
+      content: content
+    })
+
+    isThinking.value = true
+    const eventSource = new EventSource(
+      `/api/chat/sse?message=${encodeURIComponent(content)}&conversation_id=${currentConversationId.value}&is_reasoning=${isReasoning}`
+    )
+
+    // 添加助手消息占位
+    const assistantMessageIndex = messages.value.length
+    messages.value.push({
+      role: 'assistant',
+      content: ''
+    })
+
+    return new Promise((resolve, reject) => {
+      eventSource.onmessage = (event) => {
+        if (event.data === '[DONE]') {
+          eventSource.close()
+          isThinking.value = false
+          resolve()
+          return
+        }
+
+        try {
+          // 更新助手消息内容
+          messages.value[assistantMessageIndex].content += event.data
+        } catch (err) {
+          console.error('处理消息失败:', err)
+        }
+      }
+
+      eventSource.onerror = (err) => {
+        eventSource.close()
+        isThinking.value = false
+        error.value = '连接中断'
+        reject(err)
+      }
+    })
+  }
+
   // 删除对话
   async function deleteConversation(conversationId) {
     try {
-      const response = await fetch(`/api/conversations/${conversationId}`, {
-        method: 'DELETE'
-      })
-      
-      if (response.ok) {
-        conversations.value = conversations.value.filter(conv => conv.id !== conversationId)
-        
-        // 如果删除的是当前对话，切换到其他对话或创建新对话
-        if (currentConversationId.value === conversationId) {
-          if (conversations.value.length > 0) {
-            await switchConversation(conversations.value[0].id)
-          } else {
-            await createConversation()
-          }
-        }
-      } else {
-        throw new Error('删除对话失败')
+      await request.delete(`/conversations/${conversationId}`)
+      const index = conversations.value.findIndex(conv => conv.id === conversationId)
+      if (index !== -1) {
+        conversations.value.splice(index, 1)
+      }
+      if (currentConversationId.value === conversationId) {
+        currentConversationId.value = null
+        messages.value = []
       }
     } catch (e) {
       console.error('删除对话失败:', e)
@@ -106,109 +133,18 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  // 发送消息
-  async function sendMessage(content, isReasoning = false) {
-    if (!currentConversationId.value) {
-      throw new Error('没有选择对话')
-    }
-
-    isLoading.value = true
-    error.value = null
-    isThinking.value = true
-
-    try {
-      const messageId = Date.now().toString()
-      
-      // 添加用户消息到本地状态
-      const userMessage = {
-        id: messageId,
-        role: 'user',
-        content,
-        timestamp: Date.now()
-      }
-      messages.value = [...messages.value, userMessage]
-
-      const assistantMessage = {
-        id: messageId + '_reply',
-        role: 'assistant',
-        content: '',
-        timestamp: Date.now()
-      }
-      
-      // 添加空的助手消息，用于流式更新
-      messages.value = [...messages.value, assistantMessage]
-
-      const url = new URL('/api/chat/sse', window.location.origin)
-      url.searchParams.append('conversation_id', currentConversationId.value)
-      url.searchParams.append('message', content)
-      url.searchParams.append('is_reasoning', isReasoning)
-
-      const eventSource = new EventSource(url)
-
-      return new Promise((resolve, reject) => {
-        let hasStartedReceiving = false
-
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            if (data.type === 'message') {
-              if (!hasStartedReceiving) {
-                hasStartedReceiving = true
-                isThinking.value = false
-              }
-              // 找到并更新助手消息
-              const index = messages.value.findIndex(msg => msg.id === assistantMessage.id)
-              if (index !== -1) {
-                messages.value[index].content += data.content
-                // 强制更新消息数组以触发视图更新
-                messages.value = [...messages.value]
-              }
-            } else if (data.type === 'error') {
-              eventSource.close()
-              isThinking.value = false
-              reject(new Error(data.content))
-            } else if (data.type === 'done') {
-              eventSource.close()
-              isThinking.value = false
-              resolve()
-            }
-          } catch (e) {
-            console.error('解析消息失败:', e)
-            eventSource.close()
-            isThinking.value = false
-            reject(e)
-          }
-        }
-
-        eventSource.onerror = (err) => {
-          console.error('SSE连接错误:', err)
-          eventSource.close()
-          isThinking.value = false
-          reject(new Error('连接错误'))
-        }
-      })
-    } catch (e) {
-      console.error('发送消息失败:', e)
-      error.value = '发送消息失败'
-      isThinking.value = false
-      throw e
-    } finally {
-      isLoading.value = false
-    }
-  }
-
   return {
     conversations,
-    currentConversation,
     currentConversationId,
+    currentConversation,
     messages,
     isLoading,
-    isThinking,
     error,
+    isThinking,
     fetchConversations,
     createConversation,
     switchConversation,
-    deleteConversation,
-    sendMessage
+    sendMessage,
+    deleteConversation
   }
 })

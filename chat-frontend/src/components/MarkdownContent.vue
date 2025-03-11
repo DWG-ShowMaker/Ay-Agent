@@ -6,8 +6,10 @@
 import { computed } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
+import 'highlight.js/styles/tokyo-night-dark.css'
 
 const md = new MarkdownIt({
+  html: true,
   linkify: true,
   breaks: true,
   highlight: (str, lang) => {

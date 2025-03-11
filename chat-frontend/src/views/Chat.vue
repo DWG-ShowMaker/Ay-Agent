@@ -25,9 +25,20 @@
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       <!-- 顶部导航栏 -->
       <div class="flex items-center justify-between h-14 px-4 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
-        <h1 class="text-lg font-medium text-gray-900 dark:text-gray-100">
-          {{ store.currentConversation?.title || 'AI 助手' }}
-        </h1>
+        <div class="flex items-center gap-3">
+          <router-link
+            to="/"
+            class="p-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title="返回首页"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+          </router-link>
+          <h1 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+            {{ store.currentConversation?.title || 'AI 助手' }}
+          </h1>
+        </div>
         <div class="flex items-center gap-3">
           <button 
             @click="toggleDarkMode" 
@@ -120,7 +131,7 @@ const ConversationList = defineAsyncComponent(() => import('../components/Conver
 
 const store = useChatStore()
 const messagesRef = ref(null)
-const isDarkMode = ref(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)
+const isDarkMode = ref(localStorage.getItem('darkMode') === 'true')
 
 const scrollToBottom = async (smooth = true) => {
   await nextTick()
@@ -137,6 +148,8 @@ watch(() => store.messages, () => {
 }, { deep: true })
 
 onMounted(() => {
+  // 初始化暗黑模式
+  document.documentElement.classList.toggle('dark', isDarkMode.value)
   scrollToBottom(false)
 })
 
@@ -147,6 +160,7 @@ const handleSend = async ({ content, isReasoning }) => {
 const toggleDarkMode = () => {
   isDarkMode.value = !isDarkMode.value
   document.documentElement.classList.toggle('dark', isDarkMode.value)
+  localStorage.setItem('darkMode', isDarkMode.value)
 }
 
 defineOptions({
@@ -197,25 +211,5 @@ defineOptions({
   50% {
     opacity: .5;
   }
-}
-
-.animate-pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* 消息过渡动画 */
-.message-enter-active,
-.message-leave-active {
-  transition: all 0.3s ease;
-}
-
-.message-enter-from {
-  opacity: 0;
-  transform: translateY(20px);
-}
-
-.message-leave-to {
-  opacity: 0;
-  transform: translateY(-20px);
 }
 </style>

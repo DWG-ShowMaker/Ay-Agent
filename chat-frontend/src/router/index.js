@@ -61,9 +61,6 @@ const routes = [
       const store = useChatStore()
       try {
         await store.fetchConversations()
-        if (!store.currentConversation) {
-          await store.createConversation()
-        }
         next()
       } catch (error) {
         console.error('初始化聊天失败:', error)

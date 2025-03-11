@@ -15,7 +15,8 @@ class Config:
     DEEPSEEK_API_BASE = os.getenv('DEEPSEEK_API_BASE', '')
     
     # API配置
-    DEEPSEEK_MODEL = "deepseek-chat"
+    DEEPSEEK_CHAT_MODEL = "deepseek-chat"
+    DEEPSEEK_REASONER_MODEL = "deepseek-reasoner"
     
     # 默认参数
     MAX_TOKENS = 4096
