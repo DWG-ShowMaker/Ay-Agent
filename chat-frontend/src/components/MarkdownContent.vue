@@ -3,7 +3,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import MarkdownIt from 'markdown-it'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/tokyo-night-dark.css'
@@ -26,7 +26,62 @@ const props = defineProps({
   content: String
 })
 
-const renderedContent = computed(() => md.render(props.content || ''))
+const renderedContent = ref('')
+
+// 使用 watch 来实时监听内容变化
+watch(() => props.content, (newContent) => {
+  if (newContent) {
+    let processedContent = newContent
+
+    // 检查是否是 SSE 流式响应（包含 JSON 格式的内容）
+    if (newContent.includes('{"content":')) {
+      processedContent = newContent
+        .split(/(?<=})\s*(?={)/) // 先按 JSON 对象分割
+        .map(jsonStr => {
+          try {
+            const data = JSON.parse(jsonStr.replace(/^data:\s*/, ''))
+            return data.content || ''
+          } catch (e) {
+            return ''
+          }
+        })
+        .join('') // 连接所有内容
+        .trim() // 移除首尾空白
+    }
+
+    renderedContent.value = md.render(processedContent)
+  } else {
+    renderedContent.value = ''
+  }
+}, { immediate: true })
+
+// 初始渲染
+onMounted(() => {
+  if (props.content) {
+    let processedContent = props.content
+
+    if (props.content.includes('{"content":')) {
+      processedContent = props.content
+        .split(/(?<=})\s*(?={)/)
+        .map(jsonStr => {
+          try {
+            const data = JSON.parse(jsonStr.replace(/^data:\s*/, ''))
+            return data.content || ''
+          } catch (e) {
+            return ''
+          }
+        })
+        .join('')
+        .replace(/。/g, '。\n')
+        .replace(/！/g, '！\n')
+        .replace(/？/g, '？\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim()
+    }
+
+    renderedContent.value = md.render(processedContent)
+  }
+})
 </script>
 
 <style>
@@ -36,7 +91,7 @@ const renderedContent = computed(() => md.render(props.content || ''))
 }
 
 .markdown-body :deep(p) {
-  margin: 1em 0;
+  margin: 0.5em 0;
   color: inherit;
 }
 

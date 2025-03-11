@@ -36,7 +36,7 @@
           <span class="flex-1 truncate">{{ conversation.title }}</span>
           <button
             v-if="conversation.id === store.currentConversationId"
-            @click.stop="handleDeleteChat(conversation.id)"
+            @click.stop="showDeleteConfirm(conversation.id)"
             class="p-1 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
             title="删除对话"
           >
@@ -47,13 +47,26 @@
         </button>
       </div>
     </div>
+
+    <!-- 确认删除对话框 -->
+    <ConfirmDialog
+      v-model:show="showConfirmDialog"
+      title="删除对话"
+      message="确定要删除这个对话吗？删除后将无法恢复。"
+      @confirm="handleDeleteConfirm"
+      @cancel="handleDeleteCancel"
+    />
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useChatStore } from '../stores/chat'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const store = useChatStore()
+const showConfirmDialog = ref(false)
+const pendingDeleteId = ref(null)
 
 const handleNewChat = async () => {
   try {
@@ -71,14 +84,24 @@ const handleSelectChat = async (conversationId) => {
   }
 }
 
-const handleDeleteChat = async (conversationId) => {
-  if (confirm('确定要删除这个对话吗？')) {
+const showDeleteConfirm = (conversationId) => {
+  pendingDeleteId.value = conversationId
+  showConfirmDialog.value = true
+}
+
+const handleDeleteConfirm = async () => {
+  if (pendingDeleteId.value) {
     try {
-      await store.deleteConversation(conversationId)
+      await store.deleteConversation(pendingDeleteId.value)
     } catch (e) {
       console.error('删除对话失败:', e)
     }
   }
+  pendingDeleteId.value = null
+}
+
+const handleDeleteCancel = () => {
+  pendingDeleteId.value = null
 }
 </script>
 

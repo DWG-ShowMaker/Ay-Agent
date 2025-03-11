@@ -2,7 +2,14 @@
   <div class="relative">
     <div class="relative flex flex-col gap-2">
       <div class="flex items-center gap-2">
-        <div class="flex-1 min-h-[44px] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-400 transition-shadow">
+        <div 
+          class="flex-1 min-h-[44px] rounded-lg border transition-all duration-200 bg-white dark:bg-gray-800 overflow-hidden shadow-sm"
+          :class="[
+            isReasoningMode 
+              ? 'border-purple-300 dark:border-purple-500 focus-within:ring-2 focus-within:ring-purple-500 dark:focus-within:ring-purple-400'
+              : 'border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-blue-500 dark:focus-within:ring-blue-400'
+          ]"
+        >
           <div class="flex items-center px-3">
             <textarea
               v-model="message"
@@ -42,7 +49,9 @@
               class="flex-shrink-0 p-1.5 ml-1 rounded-md transition-all duration-200"
               :class="[
                 message.trim() 
-                  ? 'text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10' 
+                  ? isReasoningMode
+                    ? 'text-purple-500 dark:text-purple-400 bg-purple-50 dark:bg-purple-500/10'
+                    : 'text-blue-500 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10'
                   : 'text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-50'
               ]"
               :disabled="!message.trim()"

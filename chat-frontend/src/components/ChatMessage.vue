@@ -30,7 +30,7 @@
         <div class="prose dark:prose-invert prose-sm max-w-none">
           <MarkdownContent 
             :content="props.content" 
-            :key="props.content"
+            :key="Date.now()"
           />
           <div v-if="isThinking && isLastMessage" class="flex items-center gap-2 mt-4">
             <div class="thinking-dots">

@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, Response
 from services.deepseek_service import DeepSeekService
 from services.redis_store import RedisStore
 import uuid
+import json
 
 chat_bp = Blueprint('chat', __name__)
 deepseek_service = DeepSeekService()
@@ -110,13 +111,23 @@ def chat_sse():
         }
         
         def generate():
+            buffer = ""
             for chunk in response:
+                buffer += chunk
                 assistant_message['content'] += chunk
-                yield f"data: {chunk}\n\n"
+                
+                # 当遇到句子结束符号或缓冲区达到一定大小时发送
+                if any(char in buffer for char in ['。', '！', '？', '\n']) or len(buffer) >= 10:
+                    yield f"data: {json.dumps({'content': buffer}, ensure_ascii=False)}\n\n"
+                    buffer = ""
+            
+            # 发送剩余的内容
+            if buffer:
+                yield f"data: {json.dumps({'content': buffer}, ensure_ascii=False)}\n\n"
             
             # 保存完整的AI回复
             redis_store.add_message(conversation_id, assistant_message)
-            yield "data: [DONE]\n\n"
+            yield "data: {\"done\": true}\n\n"
             
         return Response(generate(), mimetype='text/event-stream')
         
